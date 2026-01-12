@@ -6,7 +6,7 @@ import 'package:remedi/services/notification_service.dart';
 class AddMedicationScreen extends StatefulWidget {
   final VoidCallback onSaved;
   const AddMedicationScreen({super.key, required this.onSaved});
-  
+
   @override
   State<AddMedicationScreen> createState() => _AddMedicationScreenState();
 }
@@ -32,7 +32,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     });
   }
 
-  // ---------------- TIME ----------------
+  // ================= TIME =================
   Future<void> _addTime() async {
     final picked = await showTimePicker(
       context: context,
@@ -61,7 +61,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         .join(';');
   }
 
-  // ---------------- DATE ----------------
+  // ================= DATE =================
   Future<void> _pickStartDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -84,8 +84,24 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     if (picked != null) setState(() => _endDate = picked);
   }
 
-  // ---------------- SAVE ----------------
+  // ================= SAVE =================
   Future<void> _saveMedication() async {
+    // 🔐 FORCE notification permission
+    final allowed =
+        await NotificationService.requestNotificationPermission();
+
+    if (!allowed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enable notifications to set medication reminders',
+          ),
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate() || _selectedTimes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please complete all required fields')),
@@ -93,12 +109,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       return;
     }
 
-    final name = _nameController.text.trim();
-    final dosage = _dosageController.text.trim();
-
     final medication = Medication(
-      name: name,
-      dosage: dosage,
+      name: _nameController.text.trim(),
+      dosage: _dosageController.text.trim(),
       time: _formatTimes(_selectedTimes),
       startDate: _startDate,
       endDate: _endDate,
@@ -107,14 +120,18 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
           : _noteController.text.trim(),
     );
 
-    await DBHelper().insertMedication(medication);
+    // ✅ INSERT & CAPTURE ID
+    final int medicationId =
+        await DBHelper().insertMedication(medication);
 
+    // ✅ SCHEDULE USING MEDICATION ID
     await NotificationService.scheduleMultipleNotifications(
+      medicationId: medicationId,
       times: _selectedTimes
           .map((t) => {'hour': t.hour, 'minute': t.minute})
           .toList(),
-      title: 'Time to take $name',
-      body: 'Dosage: $dosage',
+      title: 'Time to take ${medication.name}',
+      body: 'Dosage: ${medication.dosage}',
     );
 
     if (!mounted) return;
@@ -122,15 +139,16 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Medication added successfully')),
     );
+
     widget.onSaved();
 
-    // IMPORTANT: Do NOT pop (this is a tab)
+    // RESET FORM (tab-safe)
     _formKey.currentState!.reset();
     _selectedTimes.clear();
     _noteController.clear();
   }
 
-  // ---------------- UI ----------------
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,7 +176,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ---- TIMES ----
               _sectionTitle('Reminder Times'),
               ..._selectedTimes.asMap().entries.map(
                 (e) => ListTile(
@@ -177,10 +194,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
               const SizedBox(height: 24),
 
-              // ---- DATES ----
               _sectionTitle('Schedule'),
               ListTile(
-                title: Text('Start Date: ${_startDate.toLocal().toString().split(' ')[0]}'),
+                title: Text(
+                  'Start Date: ${_startDate.toLocal().toString().split(' ')[0]}',
+                ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: _pickStartDate,
               ),
@@ -196,7 +214,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
               const SizedBox(height: 24),
 
-              // ---- NOTES ----
               _sectionTitle('Notes'),
               TextFormField(
                 controller: _noteController,

@@ -44,7 +44,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     }
   }
 
-  // ---------------- TIME ----------------
+  // ================= TIME =================
   List<TimeOfDay> _parseTimes(String value) {
     return value.split(';').map((t) {
       final p = t.split(':');
@@ -78,7 +78,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
 
   void _removeTime(int i) => setState(() => _reminderTimes.removeAt(i));
 
-  // ---------------- DATE ----------------
+  // ================= DATE =================
   Future<void> _pickStartDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -99,9 +99,30 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     if (picked != null) setState(() => _endDate = picked);
   }
 
-  // ---------------- SAVE ----------------
+  // ================= SAVE =================
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    // 🔐 Enforce notification permission
+    final allowed =
+        await NotificationService.requestNotificationPermission();
+
+    if (!allowed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enable notifications to update medication reminders',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!_formKey.currentState!.validate() || _reminderTimes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all required fields')),
+      );
+      return;
+    }
 
     final updated = widget.medication.copyWith(
       name: _nameC.text.trim(),
@@ -115,11 +136,12 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
 
     await db.updateMedication(updated);
 
-    // Cancel old notifications
-    await NotificationService.cancelNotification(widget.medication.id!);
+    // 🔁 Cancel existing reminders (same medication ID)
+    await NotificationService.cancelNotification(updated.id!);
 
-    // Reschedule notifications
+    // 🔁 Reschedule with SAME medication ID
     await NotificationService.scheduleMultipleNotifications(
+      medicationId: updated.id!,
       times: _reminderTimes
           .map((t) => {'hour': t.hour, 'minute': t.minute})
           .toList(),
@@ -139,7 +161,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     super.dispose();
   }
 
-  // ---------------- UI ----------------
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(

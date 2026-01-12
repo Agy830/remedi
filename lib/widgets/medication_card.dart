@@ -3,6 +3,7 @@ import '../database/db_helper.dart';
 import '../models/medication.dart';
 import '../screens/patient/edit_medication_screen.dart';
 import '../services/notification_service.dart';
+import '../utils/time_formatter.dart';
 
 class MedicationCard extends StatelessWidget {
   final Medication medication;
@@ -25,6 +26,9 @@ class MedicationCard extends StatelessWidget {
 
     await DBHelper()
         .updateTakenStatus(medication.id!, !medication.isTaken);
+    
+    // Reset snooze count when manually toggled
+    NotificationService.resetSnoozeCount(medication.id!);
 
     onUpdated?.call();
   }
@@ -33,9 +37,11 @@ class MedicationCard extends StatelessWidget {
     if (readOnly || medication.id == null) return;
 
     await DBHelper().deleteMedication(medication.id!);
-    await NotificationService.cancelNotification(medication.id!);
+    await NotificationService.cancelAllNotificationsForMedication(medication.id!);
 
     onUpdated?.call();
+
+    if (!context.mounted) return; 
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${medication.name} deleted')),
@@ -59,6 +65,8 @@ class MedicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final snoozeCount = NotificationService.getSnoozeCount(medication.id!);
+    
     return Dismissible(
       key: Key(medication.id.toString()),
       direction:
@@ -130,9 +138,29 @@ class MedicationCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text('Dosage: ${medication.dosage}'),
               Text(
-                'Time: ${medication.time.replaceAll(';', ', ')}',
+                'Time: ${TimeFormatter.to12HourFormat(medication.time)}',
                 style: const TextStyle(fontSize: 12),
               ),
+
+              // Show snooze count if medication is not taken
+              if (snoozeCount > 0 && !medication.isTaken)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.snooze, size: 12, color: Colors.orange),
+                      SizedBox(width: 4),
+                      Text(
+                        'Snoozed $snoozeCount/${NotificationService.maxSnooze} times',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               if (medication.note != null)
                 Padding(
@@ -151,7 +179,7 @@ class MedicationCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    'Ends: ${medication.endDate!.day}/${medication.endDate!.month}/${medication.endDate!.year}',
+                    'Ends: ${TimeFormatter.formatDate(medication.endDate!)}',
                     style: const TextStyle(fontSize: 11, color: Colors.red),
                   ),
                 ),

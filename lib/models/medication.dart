@@ -8,7 +8,7 @@ class Medication {
   /// Stored as "HH:mm;HH:mm" (24h, DB-safe)
   final String time;
 
-  /// Daily taken status (resets daily later)
+  /// Daily taken status (resets daily)
   final bool isTaken;
 
   /// When medication starts
@@ -40,10 +40,10 @@ class Medication {
       time: map['time'] as String,
       isTaken: map['isTaken'] == 1,
       startDate: map['startDate'] != null
-          ? DateTime.parse(map['startDate'])
+          ? DateTime.tryParse(map['startDate']) ?? DateTime.now()
           : DateTime.now(),
       endDate: map['endDate'] != null
-          ? DateTime.parse(map['endDate'])
+          ? DateTime.tryParse(map['endDate'])
           : null,
       note: map['note'] as String?,
     );
