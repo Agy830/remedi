@@ -1,0 +1,16 @@
+﻿Analyzing remedi...                                             
+
+warning - The declaration '_recreateTableWithDefault' isn't referenced - lib\database\db_helper.dart:77:16 - unused_element
+  error - Undefined class 'DbHelperRef' - lib\providers\providers.dart:11:19 - undefined_class
+  error - Undefined class 'MedicationRepositoryRef' - lib\providers\providers.dart:16:43 - undefined_class
+  error - Undefined class 'ActiveMedicationsRef' - lib\providers\providers.dart:24:44 - undefined_class
+   info - 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre - lib\screens\caregiver\caregiver_shell.dart:22:12 - deprecated_member_use
+   info - Invalid use of a private type in a public API - lib\screens\debug_notification_screen.dart:10:3 - library_private_types_in_public_api
+   info - Unnecessary use of 'toList' in a spread - lib\screens\debug_notification_screen.dart:113:14 - unnecessary_to_list_in_spreads
+   info - Don't use 'BuildContext's across async gaps - lib\screens\patient\add_medication_screen.dart:106:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\patient\edit_medication_screen.dart:121:28 - use_build_context_synchronously
+  error - The name 'PatientProfileScreen' isn't a class - lib\screens\patient\patient_shell.dart:31:13 - creation_with_non_type
+   info - 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre - lib\screens\patient\patient_shell.dart:37:12 - deprecated_member_use
+   info - The constant name 'PREF_SOUND' isn't a lowerCamelCase identifier - lib\services\notification_service.dart:33:23 - constant_identifier_names
+   info - The constant name 'PREF_PERSISTENT' isn't a lowerCamelCase identifier - lib\services\notification_service.dart:34:23 - constant_identifier_names
+

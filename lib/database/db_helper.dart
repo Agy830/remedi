@@ -3,13 +3,24 @@ import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
 import '../models/medication.dart';
 
+/// Singleton helper class for SQLite database interactions.
+/// 
+/// Manages the `medications` and `medication_logs` tables.
+/// - `medications`: Stores the schedule and details of the meds.
+/// - `medication_logs`: Stores the history of Taken/Missed doses for calendar tracking.
 class DBHelper {
   static Database? _database;
 
+  /// Returns the active database connection, initializing it if necessary.
   Future<Database> get database async {
     return _database ??= await _initDB();
   }
 
+  /// Opens the database and creates tables if they don't exist.
+  /// 
+  /// The schema includes:
+  /// 1. `medications`: id, name, dosage, type, time, instructions, isTaken.
+  /// 2. `medication_logs`: id, medication_id, taken_at, status (TAKEN/MISSED/SKIPPED).
   Future<Database> _initDB() async {
     final path = join(await getDatabasesPath(), 'medications.db');
     
@@ -19,11 +30,10 @@ class DBHelper {
     
     return openDatabase(
       path,
-      version: 3, // Incremented version for migration
+      version: 4, // Incremented version for history logs
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
       onOpen: (db) async {
-        // Verify table structure on open
         await _verifyTableStructure(db);
       },
     );
@@ -38,10 +48,21 @@ class DBHelper {
         name TEXT NOT NULL,
         dosage TEXT NOT NULL,
         time TEXT NOT NULL,
-        isTaken INTEGER NOT NULL DEFAULT 0,  -- ✅ Changed to DEFAULT 0
+        isTaken INTEGER NOT NULL DEFAULT 0,
         startDate TEXT NOT NULL,
         endDate TEXT,
         note TEXT
+      )
+    ''');
+
+    // History Log Table
+    await db.execute('''
+      CREATE TABLE medication_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        medication_id INTEGER NOT NULL,
+        taken_at TEXT NOT NULL, -- ISO8601 DateTime
+        status TEXT NOT NULL,   -- 'TAKEN', 'SKIPPED'
+        FOREIGN KEY (medication_id) REFERENCES medications (id) ON DELETE CASCADE
       )
     ''');
 
@@ -60,27 +81,72 @@ class DBHelper {
     
     if (oldVersion < 3) {
       try {
-        // Check if isTaken column has DEFAULT 0
-        final columns = await db.rawQuery('PRAGMA table_info(medications)');
-        final isTakenColumn = columns.firstWhere(
-          (col) => col['name'] == 'isTaken',
-          orElse: () => {},
-        );
-        
-        if (isTakenColumn.isEmpty) {
-          debugPrint('⚠️ isTaken column not found, adding it...');
-          await db.execute('ALTER TABLE medications ADD COLUMN isTaken INTEGER DEFAULT 0');
-        } else if (isTakenColumn['dflt_value'] == null) {
-          debugPrint('🔄 Adding DEFAULT 0 to isTaken column');
-          // We need to recreate the table to add DEFAULT constraint
-          await _recreateTableWithDefault(db);
-        }
+        await db.execute('ALTER TABLE medications ADD COLUMN isTaken INTEGER DEFAULT 0');
+        debugPrint('✅ Added isTaken column');
       } catch (e) {
-        debugPrint('❌ Error during migration: $e');
+         debugPrint('ℹ️ isTaken column might already exist: $e');
+      }
+    }
+
+    if (oldVersion < 4) {
+      // Add medication_logs table
+      try {
+        await db.execute('''
+          CREATE TABLE medication_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            medication_id INTEGER NOT NULL,
+            taken_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            FOREIGN KEY (medication_id) REFERENCES medications (id) ON DELETE CASCADE
+          )
+        ''');
+        debugPrint('✅ Created medication_logs table');
+      } catch (e) {
+        debugPrint('❌ Error creating medication_logs table: $e');
       }
     }
   }
 
+  // ... (verifyTableStructure remains same)
+
+  // ======================
+  // LOG CRUD Operations
+  // ======================
+  Future<int> insertLog(int medId, DateTime takenAt, String status) async {
+    final db = await database;
+    final id = await db.insert('medication_logs', {
+      'medication_id': medId,
+      'taken_at': takenAt.toIso8601String(),
+      'status': status,
+    });
+    debugPrint('📝 Logged medication $medId as $status at $takenAt');
+    return id;
+  }
+
+  Future<List<Map<String, dynamic>>> getLogsForDate(DateTime date) async {
+    final db = await database;
+    // Query logs for the specific day (start to end of day)
+    final start = DateTime(date.year, date.month, date.day).toIso8601String();
+    final end = DateTime(date.year, date.month, date.day, 23, 59, 59).toIso8601String();
+
+    return await db.query(
+      'medication_logs',
+      where: 'taken_at BETWEEN ? AND ?',
+      whereArgs: [start, end],
+    );
+  }
+  
+  Future<List<Map<String, dynamic>>> getAllLogs() async {
+     final db = await database;
+     return await db.query('medication_logs');
+  }
+
+  // ======================
+  // CRUD Operations (rest unchanged)
+  // ...
+
+
+  /* 
   Future<void> _recreateTableWithDefault(Database db) async {
     debugPrint('🔄 Recreating medications table with DEFAULT constraint');
     
@@ -115,6 +181,7 @@ class DBHelper {
     
     debugPrint('✅ Table recreated with DEFAULT 0 constraint');
   }
+  */
 
   Future<void> _verifyTableStructure(Database db) async {
     try {

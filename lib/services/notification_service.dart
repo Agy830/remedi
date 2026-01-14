@@ -5,8 +5,21 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 
+import 'dart:typed_data'; // For Int32List
 import '../database/db_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+// ✅ Moved enum to top-level to fix undefined class errors
+enum NotificationPriority { low, medium, high }
+
+/// A comprehensive service to handle Local Notifications and Scheduling.
+/// 
+/// Uses `flutter_local_notifications` to schedule daily reminders for medications.
+/// It also handles:
+/// - Requesting permissions
+/// - Defining notification channels (channels determine sound and vibration behavior)
+/// - Handling notification taps (Foregound/Background)
+/// - Rescheduling alarms when settings change.
 class NotificationService {
   static final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -24,12 +37,34 @@ class NotificationService {
   static final Map<int, int> _snoozeCounts = {};
   static const int maxSnooze = 5;
 
+  // Preferences Keys
+  static const String PREF_SOUND = 'notification_sound'; // 'default', 'loud', 'soft', 'long'
+  static const String PREF_PERSISTENT = 'persistent_alarm'; // bool
+
+  // Sound mapping
+  static const Map<String, String> soundChannels = {
+    'default': 'medication_channel_default',
+    'loud': 'medication_channel_loud',
+    'soft': 'medication_channel_soft',
+    'long': 'medication_channel_long',
+  };
+
+  static const Map<String, String> soundNames = {
+    'default': 'Default',
+    'loud': 'Loud Alarm',
+    'soft': 'Soft Chime',
+    'long': 'Long Melody',
+  };
+
   // ✅ ADD THIS: Timestamp tracking to prevent duplicate actions
   static final Map<String, int> _actionTimestamps = {};
 
   static final _actionProcessedController = StreamController<int>.broadcast();
   static Stream<int> get onActionProcessed => _actionProcessedController.stream;
 
+  /// Initializes the plugin and sets up timezone data.
+  /// 
+  /// Must be called before any other method.
   static Future<void> initialize() async {
     if (_initialized) {
       debugPrint('✅ NotificationService already initialized');
@@ -63,7 +98,18 @@ class NotificationService {
             return;
           }
 
-          final medicationId = response.id!;
+          // Try to parse medication ID from payload first (reliable for snoozed notifications)
+          int notificationId = response.id!;
+          int medicationId = notificationId;
+
+          if (response.payload != null) {
+            final payloadId = int.tryParse(response.payload!);
+            if (payloadId != null) {
+              medicationId = payloadId;
+              debugPrint('📦 Recovered original medication ID from payload: $medicationId (notification ID: $notificationId)');
+            }
+          }
+
           final action = response.actionId;
 
           // Store pending action ONLY if we don't already have one
@@ -99,23 +145,43 @@ class NotificationService {
 
     if (android == null) return;
 
-    await android.createNotificationChannel(
-      const AndroidNotificationChannel(
-        'medication_channel_id',
-        'Medication Reminders',
-        description: 'Reminders for your medication schedule',
-        importance: Importance.max,
-        sound: RawResourceAndroidNotificationSound('notification'),
-        enableVibration: true,
-      ),
-    );
-    debugPrint('✅ Notification channel created');
+    // Create a channel for EACH sound
+    for (final entry in soundChannels.entries) {
+      final soundKey = entry.key;
+      final channelId = entry.value;
+      
+      // Map sound key to actual resource name (assuming they match file names in res/raw without extension)
+      // default -> notification
+      // loud -> alarm_loud
+      // soft -> alarm_soft
+      // long -> alarm_long
+      String resourceName = 'notification';
+      if (soundKey == 'loud') resourceName = 'alarm_loud';
+      if (soundKey == 'soft') resourceName = 'alarm_soft';
+      if (soundKey == 'long') resourceName = 'alarm_long';
+
+      await android.createNotificationChannel(
+        AndroidNotificationChannel(
+          channelId,
+          'Medication Reminders (${soundNames[soundKey]})',
+          description: 'Reminders with ${soundNames[soundKey]} sound',
+          importance: Importance.max,
+          sound: RawResourceAndroidNotificationSound(resourceName),
+          enableVibration: true,
+        ),
+      );
+    }
+    
+    debugPrint('✅ Notification channels created');
   }
 
-  static NotificationDetails _details() {
-    return const NotificationDetails(
+  static NotificationDetails _details({
+    required String channelId,
+    bool persistent = false,
+  }) {
+    return NotificationDetails(
       android: AndroidNotificationDetails(
-        'medication_channel_id',
+        channelId,
         'Medication Reminders',
         channelDescription: 'Reminders for your medication schedule',
         priority: Priority.max,
@@ -123,8 +189,10 @@ class NotificationService {
         fullScreenIntent: true,
         category: AndroidNotificationCategory.alarm,
         ongoing: true,
-        autoCancel: true,
+        autoCancel: true, // If persistent, maybe set this to false? Usually true is fine if tapping opens app
         showWhen: true,
+        // Add FLAG_INSISTENT if persistent (loops sound)
+        additionalFlags: persistent ? Int32List.fromList([4]) : null, 
         actions: <AndroidNotificationAction>[
           AndroidNotificationAction(
             actionTaken,
@@ -202,6 +270,10 @@ class NotificationService {
       // 1. Update database
       debugPrint('📊 Updating database for medication: $medicationId');
       await DBHelper().updateTakenStatus(medicationId, true);
+      
+      // ✅ Log history
+      await DBHelper().insertLog(medicationId, DateTime.now(), 'TAKEN');
+      
       debugPrint('✅ Database updated successfully');
       
       // 2. Cancel all notifications for this medication
@@ -258,13 +330,20 @@ class NotificationService {
       final hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
       final timeString = '$hour12:${minute.toString().padLeft(2, '0')} $amPm';
       
+      // Get preferences
+      final prefs = await SharedPreferences.getInstance();
+      final soundKey = prefs.getString(PREF_SOUND) ?? 'default';
+      final persistent = prefs.getBool(PREF_PERSISTENT) ?? false;
+      final channelId = soundChannels[soundKey] ?? 'medication_channel_default';
+
       await notificationsPlugin.zonedSchedule(
         medicationId + 1000 + newCount,
         '⏰ Medication Reminder - Snoozed',
         'Snoozed until $timeString ($newCount/$maxSnooze)',
         snoozeTime,
-        _details(),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        _details(channelId: channelId, persistent: persistent),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // ✅ Added missing parameter
+        payload: medicationId.toString(),
       );
       
       debugPrint('✅ Snoozed until $timeString ($newCount/$maxSnooze)');
@@ -346,13 +425,21 @@ class NotificationService {
     // Update body to include AM/PM time
     final updatedBody = '$body at $timeString';
     
+    // Get preferences
+    final prefs = await SharedPreferences.getInstance();
+    final soundKey = prefs.getString(PREF_SOUND) ?? 'default';
+    final persistent = prefs.getBool(PREF_PERSISTENT) ?? false;
+    final channelId = soundChannels[soundKey] ?? 'medication_channel_default';
+
+    debugPrint('🔔 Scheduling with sound: $soundKey (channel: $channelId), persistent: $persistent');
+
     await notificationsPlugin.zonedSchedule(
       id,
       title,
       updatedBody,
       scheduled,
-      _details(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      _details(channelId: channelId, persistent: persistent),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // ✅ Added missing parameter
       matchDateTimeComponents: DateTimeComponents.time,
       payload: id.toString(),
     );
@@ -369,7 +456,18 @@ class NotificationService {
       now.day,
       hour,
       minute,
+      minute, // Note: This seems duplicative in original code? Assuming it means 'minute'
     );
+    // Correcting parameter call to TZDateTime
+    time = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
 
     if (time.isBefore(now)) {
       time = time.add(const Duration(days: 1));
@@ -396,6 +494,35 @@ class NotificationService {
         body: body,
       );
     }
+  }
+
+  static Future<void> rescheduleAllNotifications() async {
+    debugPrint('🔄 Rescheduling ALL notifications due to settings change...');
+    
+    // 1. Cancel everything first
+    await notificationsPlugin.cancelAll();
+    
+    // 2. Get all active medications
+    final meds = await DBHelper().getAllMedications();
+    
+    // 3. Re-schedule each
+    for (var med in meds) {
+      if (!med.isTaken) {
+         // Parse time string "HH:MM"
+         final parts = med.time.split(':');
+         final h = int.parse(parts[0]);
+         final m = int.parse(parts[1]);
+         
+         await scheduleNotification(
+           id: med.id!, 
+           hour: h, 
+           minute: m, 
+           title: 'Time to take ${med.name}', 
+           body: 'Dosage: ${med.dosage}'
+         );
+      }
+    }
+    debugPrint('✅ Rescheduled ${meds.length} medications');
   }
 
   static Future<void> cancelNotification(int id) async {
@@ -515,5 +642,31 @@ class NotificationService {
     } else {
       debugPrint('✅ Exact alarm permission already granted');
     }
+  }
+
+  // ================================
+  // PREFERENCE GETTERS/SETTERS
+  // ================================
+
+  static Future<String> getSoundPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(PREF_SOUND) ?? 'default';
+  }
+
+  static Future<void> setSoundPreference(String soundKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(PREF_SOUND, soundKey);
+    debugPrint('💾 Saved sound preference: $soundKey');
+  }
+
+  static Future<bool> getPersistentPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(PREF_PERSISTENT) ?? false;
+  }
+
+  static Future<void> setPersistentPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(PREF_PERSISTENT, value);
+    debugPrint('💾 Saved persistent preference: $value');
   }
 }

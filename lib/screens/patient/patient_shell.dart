@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'patient_home_screen.dart';
 import 'add_medication_screen.dart';
 import 'patient_calendar_screen.dart';
-import 'patient_settings_screen.dart';
+import 'patient_profile_screen.dart';
 
 class PatientShell extends StatefulWidget {
   const PatientShell({super.key});
@@ -65,7 +65,7 @@ class _PatientShellState extends State<PatientShell> {
               label: 'Calendar',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person),
+              icon: Icon(Icons.person_outline),
               label: 'Profile',
             ),
           ],

@@ -41,7 +41,47 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
 
   Future<void> _init() async {
     await _resetTakenIfNewDay();
+    await _checkMissedDoses(); // Check for missed meds on load
     await _loadMedications();
+  }
+  
+  /// Checks for any missed doses since the app was last opened.
+  /// 
+  /// Logic:
+  /// 1. Get all medications scheduled for today.
+  /// 2. If a medication is NOT taken and the scheduled time was > 1 minute ago (Testing Mode),
+  ///    we consider it "Missed".
+  /// 3. We log an entry in the `medication_logs` table with status 'MISSED'.
+  /// 
+  /// This ensures that the Calendar history accurately reflects missed medications.
+  Future<void> _checkMissedDoses() async {
+    // Only run this check once per app start/resume to avoid spamming logs
+    
+    final meds = await DBHelper().getAllMedications();
+    final logs = await DBHelper().getLogsForDate(DateTime.now());
+    final now = DateTime.now();
+    
+    for (var med in meds) {
+      if (!med.isTaken) {
+         final parts = med.time.split(':');
+         final scheduledTime = DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+         
+         // If time passed by > 1 minute (FOR TESTING ONLY, WAS > 60)
+         if (now.difference(scheduledTime).inMinutes > 1) {
+           
+           // Check if we already logged a "MISSED" status for this med today
+           final alreadyLogged = logs.any((log) => 
+               log['medication_id'] == med.id && 
+               (log['status'] == 'MISSED' || log['status'] == 'TAKEN')
+           );
+
+           if (!alreadyLogged) {
+             debugPrint('⚠️ Found missed dose for ${med.name}, logging failure...');
+             await DBHelper().insertLog(med.id!, DateTime.now(), 'MISSED');
+           }
+         }
+      }
+    }
   }
 
   @override

@@ -24,8 +24,12 @@ class MedicationCard extends StatelessWidget {
   Future<void> _toggleTaken(BuildContext context) async {
     if (readOnly || medication.id == null) return;
 
-    await DBHelper()
-        .updateTakenStatus(medication.id!, !medication.isTaken);
+    final isTaken = !medication.isTaken;
+    await DBHelper().updateTakenStatus(medication.id!, isTaken);
+    
+    if (isTaken) {
+      await DBHelper().insertLog(medication.id!, DateTime.now(), 'TAKEN');
+    }
     
     // Reset snooze count when manually toggled
     NotificationService.resetSnoozeCount(medication.id!);

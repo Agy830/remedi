@@ -164,7 +164,10 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? null : Colors.white,
       appBar: AppBar(
         title: const Text('Edit Medication'),
         backgroundColor: Colors.teal,
@@ -176,15 +179,18 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              _input(_nameC, 'Medication Name', Icons.medication),
+              _input(_nameC, 'Medication Name', Icons.medication, isDark),
               const SizedBox(height: 16),
-              _input(_dosageC, 'Dosage', Icons.line_weight),
+              _input(_dosageC, 'Dosage', Icons.line_weight, isDark),
               const SizedBox(height: 16),
 
-              _section('Reminder Times'),
+              _section('Reminder Times', isDark),
               ..._reminderTimes.asMap().entries.map(
                 (e) => ListTile(
-                  title: Text(e.value.format(context)),
+                  title: Text(
+                    e.value.format(context),
+                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () => _removeTime(e.key),
@@ -198,12 +204,13 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
               ),
 
               const SizedBox(height: 24),
-              _section('Schedule'),
+              _section('Schedule', isDark),
               ListTile(
                 title: Text(
                   'Start Date: ${_startDate.toLocal().toString().split(' ')[0]}',
+                   style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                 ),
-                trailing: const Icon(Icons.calendar_today),
+                trailing: Icon(Icons.calendar_today, color: isDark ? Colors.white70 : Colors.black54),
                 onTap: _pickStartDate,
               ),
               ListTile(
@@ -211,19 +218,25 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                   _endDate == null
                       ? 'End Date: Not set'
                       : 'End Date: ${_endDate!.toLocal().toString().split(' ')[0]}',
+                   style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                 ),
-                trailing: const Icon(Icons.calendar_today),
+                trailing: Icon(Icons.calendar_today, color: isDark ? Colors.white70 : Colors.black54),
                 onTap: _pickEndDate,
               ),
 
               const SizedBox(height: 24),
-              _section('Notes'),
+              _section('Notes', isDark),
               TextFormField(
                 controller: _noteC,
                 maxLines: 3,
-                decoration: const InputDecoration(
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
                   hintText: 'Optional notes',
-                  border: OutlineInputBorder(),
+                  hintStyle: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey),
+                  ),
                 ),
               ),
 
@@ -248,23 +261,33 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     TextEditingController c,
     String label,
     IconData icon,
+    bool isDark,
   ) {
     return TextFormField(
       controller: c,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       validator: (v) => v == null || v.isEmpty ? 'Required' : null,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
+        prefixIcon: Icon(icon, color: isDark ? Colors.white70 : Colors.grey),
         border: const OutlineInputBorder(),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey),
+        ),
       ),
     );
   }
 
-  Widget _section(String t) => Padding(
+  Widget _section(String t, bool isDark) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           t,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
         ),
       );
 }
