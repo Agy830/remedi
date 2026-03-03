@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/auth_text_field.dart';
 import '../../widgets/auth_dropdown.dart';
 import '../../widgets/auth_button.dart';
 import '../patient/patient_shell.dart';
 import '../caregiver/caregiver_shell.dart';
+import '../../database/db_remote_helper.dart';
 
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
@@ -34,28 +36,64 @@ class _SigninScreenState extends State<SigninScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Simulate network request
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        final AuthResponse res = await Supabase.instance.client.auth
+            .signInWithPassword(
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+            );
 
-      if (mounted) {
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
 
-        if (_selectedRole == 'Patient') {
-          Navigator.pushReplacement(
+          if (res.user != null) {
+            final userId = res.user!.id;
+            final dbHelper = DbRemoteHelper();
+
+            // Verify the user exists in the correct table based on their selected role
+            final isValidRole = await dbHelper.verifyUserRole(
+              userId,
+              _selectedRole!,
+            );
+
+            if (!mounted) return;
+
+            if (isValidRole) {
+              if (_selectedRole == 'Patient') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PatientShell()),
+                );
+              } else if (_selectedRole == 'Caregiver') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CaregiverShell()),
+                );
+              } else if (_selectedRole == 'Medical Practitioner') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Doctor Dashboard not implemented yet'),
+                  ),
+                );
+              }
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Account type mismatch or user not found. Please select the correct role.',
+                  ),
+                ),
+              );
+              await dbHelper.signOut();
+            }
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(
             context,
-            MaterialPageRoute(builder: (_) => const PatientShell()),
-          );
-        } else if (_selectedRole == 'Caregiver') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const CaregiverShell()),
-          );
-        } else if (_selectedRole == 'Medical Practitioner') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Doctor Dashboard not implemented yet'),
-            ),
-          );
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         }
       }
     }

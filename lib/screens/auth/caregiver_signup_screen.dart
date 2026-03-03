@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../database/db_remote_helper.dart';
 import '../../widgets/auth_text_field.dart';
 import '../../widgets/auth_button.dart';
 
@@ -34,15 +35,29 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Simulate network request
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign up successful (Mock)')),
+      try {
+        await DbRemoteHelper().signUpCaregiver(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          phone: _phoneController.text.trim(),
         );
-        Navigator.pop(context);
+
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Verification link sent to email')),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}')),
+          );
+        }
       }
     }
   }

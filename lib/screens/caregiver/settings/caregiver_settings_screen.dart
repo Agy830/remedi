@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../app_entry.dart';
+import '../../../database/db_remote_helper.dart';
 
 /// Settings screen for the Caregiver profile.
-/// 
+///
 /// Allows the caregiver to:
 /// - Manage notification preferences (placeholder).
 /// - Change language (placeholder).
@@ -24,17 +26,26 @@ class CaregiverSettingsScreen extends StatelessWidget {
               CircleAvatar(
                 radius: 36,
                 backgroundColor: isDark ? Colors.teal.shade700 : Colors.teal,
-                child: const Text('CG', style: TextStyle(color: Colors.white, fontSize: 18)),
+                child: const Text(
+                  'CG',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
               ),
               const SizedBox(height: 8),
-              Text('Caregiver', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+              Text(
+                'Caregiver',
+                style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+              ),
               Text('caregiver@email.com', style: TextStyle(color: subColor)),
             ],
           ),
         ),
 
         const SizedBox(height: 24),
-        Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        Text(
+          'Settings',
+          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+        ),
 
         const SizedBox(height: 12),
 
@@ -42,7 +53,7 @@ class CaregiverSettingsScreen extends StatelessWidget {
           leading: Icon(Icons.notifications, color: subColor),
           title: Text('Notifications', style: TextStyle(color: textColor)),
           trailing: Switch(
-            value: true, 
+            value: true,
             onChanged: (_) {},
             activeColor: Colors.teal,
           ),
@@ -56,7 +67,16 @@ class CaregiverSettingsScreen extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.logout, color: Colors.red),
           title: const Text('Logout', style: TextStyle(color: Colors.red)),
-          onTap: () {},
+          onTap: () async {
+            await DbRemoteHelper().signOut();
+            if (context.mounted) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const AppEntry()),
+                (route) => false,
+              );
+            }
+          },
         ),
       ],
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../database/db_remote_helper.dart';
 import '../../widgets/auth_text_field.dart';
 import '../../widgets/auth_dropdown.dart';
 import '../../widgets/auth_button.dart';
@@ -86,15 +87,42 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Simulate network request
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        final allergiesList = _allergiesController.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
 
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign up successful (Mock)')),
+        await DbRemoteHelper().signUpPatient(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          dob: _dobController.text,
+          gender: _selectedGender,
+          bloodGroup: _selectedBloodGroup,
+          genotype: _selectedGenotype,
+          weightKg: double.tryParse(_weightController.text.trim()),
+          heightCm: double.tryParse(_heightController.text.trim()),
+          allergies: allergiesList.isNotEmpty ? allergiesList : null,
         );
-        Navigator.pop(context); // Go back to entry or login
+
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Verification link sent to email')),
+          );
+          Navigator.pop(context); // Go back to entry or login
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        }
       }
     }
   }

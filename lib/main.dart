@@ -5,20 +5,28 @@ import 'screens/app_entry.dart';
 import 'screens/onboarding_screen.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/theme_provider.dart';
 
 /// The entry point of the Remedi application.
-/// 
+///
 /// This file is responsible for:
 /// 1. Initializing the Flutter bindings.
 /// 2. Setting up the [NotificationService] to handle local notifications.
 /// 3. Checking the onboarding status via [SharedPreferences].
-/// 4. Launching the [RemediApp] with the appropriate initial screen.
+/// 4. Launching the [RemediApp] with the appropriate initial screen
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Supabase (Replace with actual credentials)
+  await Supabase.initialize(
+    url: 'https://piqpfqjhlekmnwcirsci.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcXBmcWpobGVrbW53Y2lyc2NpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4MDAyNDEsImV4cCI6MjA4NDM3NjI0MX0.0aXqn8yVbc3ygPFy-zQdcBHT0QExyhL-fVX7u7cShg4',
+  );
+
   debugPrint('🚀 App starting...');
-  
+
   // Initialize notification service FIRST
   // This ensures we can handle notification taps even if the app was terminated.
   await NotificationService.initialize();
@@ -36,17 +44,11 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final showOnboarding = !prefs.containsKey('onboarding_complete');
 
-  runApp(
-    ProviderScope(
-      child: RemediApp(showOnboarding: showOnboarding),
-    ),
-  );
+  runApp(ProviderScope(child: RemediApp(showOnboarding: showOnboarding)));
 }
 
-
-
 /// The Root Widget of the application.
-/// 
+///
 /// It listens to the [themeProvider] to dynamically switch between Light and Dark modes.
 class RemediApp extends ConsumerWidget {
   final bool showOnboarding;

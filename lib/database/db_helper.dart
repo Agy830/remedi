@@ -1,10 +1,11 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
 import '../models/medication.dart';
 
 /// Singleton helper class for SQLite database interactions.
-/// 
+///
 /// Manages the `medications` and `medication_logs` tables.
 /// - `medications`: Stores the schedule and details of the meds.
 /// - `medication_logs`: Stores the history of Taken/Missed doses for calendar tracking.
@@ -17,17 +18,22 @@ class DBHelper {
   }
 
   /// Opens the database and creates tables if they don't exist.
-  /// 
+  ///
   /// The schema includes:
   /// 1. `medications`: id, name, dosage, type, time, instructions, isTaken.
   /// 2. `medication_logs`: id, medication_id, taken_at, status (TAKEN/MISSED/SKIPPED).
   Future<Database> _initDB() async {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     final path = join(await getDatabasesPath(), 'medications.db');
-    
+
     if (kDebugMode) {
       debugPrint('📁 Database path: $path');
     }
-    
+
     return openDatabase(
       path,
       version: 4, // Incremented version for history logs
@@ -41,7 +47,7 @@ class DBHelper {
 
   Future<void> _createDB(Database db, int version) async {
     debugPrint('🔄 Creating database tables (version $version)');
-    
+
     await db.execute('''
       CREATE TABLE medications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,19 +78,21 @@ class DBHelper {
         value TEXT
       )
     ''');
-    
+
     debugPrint('✅ Database tables created successfully');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     debugPrint('🔄 Upgrading database from version $oldVersion to $newVersion');
-    
+
     if (oldVersion < 3) {
       try {
-        await db.execute('ALTER TABLE medications ADD COLUMN isTaken INTEGER DEFAULT 0');
+        await db.execute(
+          'ALTER TABLE medications ADD COLUMN isTaken INTEGER DEFAULT 0',
+        );
         debugPrint('✅ Added isTaken column');
       } catch (e) {
-         debugPrint('ℹ️ isTaken column might already exist: $e');
+        debugPrint('ℹ️ isTaken column might already exist: $e');
       }
     }
 
@@ -127,7 +135,14 @@ class DBHelper {
     final db = await database;
     // Query logs for the specific day (start to end of day)
     final start = DateTime(date.year, date.month, date.day).toIso8601String();
-    final end = DateTime(date.year, date.month, date.day, 23, 59, 59).toIso8601String();
+    final end = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      23,
+      59,
+      59,
+    ).toIso8601String();
 
     return await db.query(
       'medication_logs',
@@ -135,16 +150,15 @@ class DBHelper {
       whereArgs: [start, end],
     );
   }
-  
+
   Future<List<Map<String, dynamic>>> getAllLogs() async {
-     final db = await database;
-     return await db.query('medication_logs');
+    final db = await database;
+    return await db.query('medication_logs');
   }
 
   // ======================
   // CRUD Operations (rest unchanged)
   // ...
-
 
   /* 
   Future<void> _recreateTableWithDefault(Database db) async {
@@ -188,7 +202,9 @@ class DBHelper {
       final columns = await db.rawQuery('PRAGMA table_info(medications)');
       debugPrint('📊 Current medications table structure:');
       for (var column in columns) {
-        debugPrint('  ${column['name']} - ${column['type']} - Default: ${column['dflt_value']}');
+        debugPrint(
+          '  ${column['name']} - ${column['type']} - Default: ${column['dflt_value']}',
+        );
       }
     } catch (e) {
       debugPrint('❌ Error verifying table structure: $e');
@@ -211,19 +227,16 @@ class DBHelper {
 
     final today = DateTime.now();
 
-    final medications = result
-        .map((e) => Medication.fromMap(e))
-        .where((m) {
-          final start = m.startDate;
-          final end = m.endDate;
+    final medications = result.map((e) => Medication.fromMap(e)).where((m) {
+      final start = m.startDate;
+      final end = m.endDate;
 
-          if (today.isBefore(start)) return false;
-          if (end != null && today.isAfter(end)) return false;
+      if (today.isBefore(start)) return false;
+      if (end != null && today.isAfter(end)) return false;
 
-          return true;
-        })
-        .toList();
-    
+      return true;
+    }).toList();
+
     debugPrint('📋 Retrieved ${medications.length} medications from database');
     return medications;
   }
@@ -231,7 +244,7 @@ class DBHelper {
   // ✅ FIXED: Use correct column name 'isTaken'
   Future<void> updateTakenStatus(int medicationId, bool isTaken) async {
     final db = await database;
-    
+
     // First, check if medication exists
     final result = await db.query(
       'medications',
@@ -239,12 +252,12 @@ class DBHelper {
       whereArgs: [medicationId],
       limit: 1,
     );
-    
+
     if (result.isEmpty) {
       debugPrint('❌ Medication with ID $medicationId not found');
       return;
     }
-    
+
     // Update the status
     final updated = await db.update(
       'medications',
@@ -252,7 +265,7 @@ class DBHelper {
       where: 'id = ?',
       whereArgs: [medicationId],
     );
-    
+
     if (updated > 0) {
       debugPrint('✅ Updated medication $medicationId: isTaken = $isTaken');
     } else {
@@ -282,11 +295,10 @@ class DBHelper {
 
   Future<void> setLastResetDate(String date) async {
     final db = await database;
-    await db.insert(
-      'app_meta',
-      {'key': 'last_reset_date', 'value': date},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('app_meta', {
+      'key': 'last_reset_date',
+      'value': date,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     debugPrint('📅 Set last reset date to: $date');
   }
 
@@ -311,11 +323,7 @@ class DBHelper {
   // ======================
   Future<void> deleteMedication(int id) async {
     final db = await database;
-    await db.delete(
-      'medications',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('medications', where: 'id = ?', whereArgs: [id]);
     debugPrint('🗑️ Deleted medication with ID: $id');
   }
 
@@ -327,14 +335,18 @@ class DBHelper {
     final tableInfo = await db.rawQuery('PRAGMA table_info(medications)');
     debugPrint('📊 Medications table structure:');
     for (var column in tableInfo) {
-      debugPrint('  ${column['name']} - ${column['type']} - Default: ${column['dflt_value']}');
+      debugPrint(
+        '  ${column['name']} - ${column['type']} - Default: ${column['dflt_value']}',
+      );
     }
-    
+
     // Also print sample data
     final medications = await db.query('medications', limit: 5);
     debugPrint('📋 Sample data (first 5 rows):');
     for (var med in medications) {
-      debugPrint('  ID: ${med['id']}, Name: ${med['name']}, isTaken: ${med['isTaken']}');
+      debugPrint(
+        '  ID: ${med['id']}, Name: ${med['name']}, isTaken: ${med['isTaken']}',
+      );
     }
   }
 
@@ -350,16 +362,16 @@ class DBHelper {
   }
 
   // In DBHelper class
-Future<void> emergencyFixIsTakenColumn() async {
-  final db = await database;
-  try {
-    // Try to add the column if it doesn't exist
-    await db.execute('ALTER TABLE medications ADD COLUMN isTaken INTEGER DEFAULT 0');
-    debugPrint('✅ Emergency fix: Added isTaken column');
-  } catch (e) {
-    debugPrint('ℹ️ isTaken column already exists or error: $e');
+  Future<void> emergencyFixIsTakenColumn() async {
+    final db = await database;
+    try {
+      // Try to add the column if it doesn't exist
+      await db.execute(
+        'ALTER TABLE medications ADD COLUMN isTaken INTEGER DEFAULT 0',
+      );
+      debugPrint('✅ Emergency fix: Added isTaken column');
+    } catch (e) {
+      debugPrint('ℹ️ isTaken column already exists or error: $e');
+    }
   }
-}
-
-
 }
