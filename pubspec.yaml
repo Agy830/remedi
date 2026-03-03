@@ -28,7 +28,7 @@ dependencies:
   table_calendar: ^3.0.9
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.3.5
-  audioplayers: ^5.2.1
+  # audioplayers: ^5.2.1
 
 dev_dependencies:
   flutter_test:
