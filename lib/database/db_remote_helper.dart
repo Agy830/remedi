@@ -41,38 +41,34 @@ class DbRemoteHelper {
     required Map<String, dynamic> data,
   }) async {
     try {
-      return await _supabase.auth.signUp(
+      // 1. First, attempt to sign in to check if the user already exists.
+      // Supabase's signUp doesn't throw "already exists" errors when email protection is on.
+      final signInRes = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
-        data: data,
       );
-    } on AuthException catch (e) {
-      if (e.message.toLowerCase().contains('already registered') ||
-          e.message.toLowerCase().contains('user already exists')) {
-        try {
-          // Attempt to sign in instead to verify credentials
-          final signInRes = await _supabase.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
 
-          if (signInRes.session != null) {
-            // Update the user's metadata with the new role and info
-            final updateRes = await _supabase.auth.updateUser(
-              UserAttributes(data: data),
-            );
-            return AuthResponse(
-              session: signInRes.session,
-              user: updateRes.user ?? signInRes.user,
-            );
-          }
-        } catch (_) {
-          // If sign in fails (e.g. wrong password), throw the original exception
-          throw e;
-        }
+      if (signInRes.session != null) {
+        // User exists and provided correct password. Update their metadata.
+        final updateRes = await _supabase.auth.updateUser(
+          UserAttributes(data: data),
+        );
+        return AuthResponse(
+          session: signInRes.session,
+          user: updateRes.user ?? signInRes.user,
+        );
       }
-      rethrow;
+    } on AuthException {
+      // Sign in failed (user doesn't exist, unconfirmed email, or wrong password).
+      // We safely fall through to signUp.
     }
+
+    // 2. Proceed with normal sign up
+    return await _supabase.auth.signUp(
+      email: email,
+      password: password,
+      data: data,
+    );
   }
 
   // Sign up a patient
