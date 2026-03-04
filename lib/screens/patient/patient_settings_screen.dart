@@ -30,9 +30,7 @@ class _PatientSettingsScreenState extends State<PatientSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
           SwitchListTile(
@@ -50,10 +48,7 @@ class _PatientSettingsScreenState extends State<PatientSettingsScreen> {
             trailing: DropdownButton<String>(
               value: _sound,
               items: NotificationService.soundNames.entries.map((e) {
-                return DropdownMenuItem(
-                  value: e.key,
-                  child: Text(e.value),
-                );
+                return DropdownMenuItem(value: e.key, child: Text(e.value));
               }).toList(),
               onChanged: (val) async {
                 if (val != null) {

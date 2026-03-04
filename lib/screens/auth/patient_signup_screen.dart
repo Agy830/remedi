@@ -112,9 +112,11 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification link sent to email')),
+            const SnackBar(
+              content: Text('Successfully registered as a Patient!'),
+            ),
           );
-          Navigator.pop(context); // Go back to entry or login
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } catch (e) {
         if (mounted) {

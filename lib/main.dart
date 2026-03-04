@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:remedi/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/app_entry.dart';
+import 'screens/auth_wrapper.dart';
 import 'screens/onboarding_screen.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,7 +82,7 @@ class RemediApp extends ConsumerWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: showOnboarding ? const OnboardingScreen() : const AppEntry(),
+      home: showOnboarding ? const OnboardingScreen() : const AuthWrapper(),
     );
   }
 }

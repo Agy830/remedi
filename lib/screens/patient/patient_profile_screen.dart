@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/theme_provider.dart';
 import '../notification_settings_screen.dart';
+import '../../database/db_remote_helper.dart';
 
 /// Displays the user's profile and application settings.
-/// 
+///
 /// Features:
 /// - Dark Mode Toggle (managed by [ThemeProvider]).
 /// - Navigation to Notification Settings.
@@ -58,10 +59,7 @@ class PatientProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 4),
                     const Text(
                       'john.doe@email.com',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -96,17 +94,25 @@ class PatientProfileScreen extends ConsumerWidget {
                       isDark: isDark,
                       icon: Icons.notifications_none,
                       title: 'Notifications',
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.grey,
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const NotificationSettingsScreen(),
+                            builder: (context) =>
+                                const NotificationSettingsScreen(),
                           ),
                         );
                       },
                     ),
-                    Divider(height: 1, indent: 56, color: isDark ? Colors.grey[800] : null),
+                    Divider(
+                      height: 1,
+                      indent: 56,
+                      color: isDark ? Colors.grey[800] : null,
+                    ),
                     _settingsTile(
                       isDark: isDark,
                       icon: Icons.dark_mode_outlined,
@@ -121,7 +127,11 @@ class PatientProfileScreen extends ConsumerWidget {
                         inactiveTrackColor: Colors.grey.withOpacity(0.2),
                       ),
                     ),
-                    Divider(height: 1, indent: 56, color: isDark ? Colors.grey[800] : null),
+                    Divider(
+                      height: 1,
+                      indent: 56,
+                      color: isDark ? Colors.grey[800] : null,
+                    ),
                     _settingsTile(
                       isDark: isDark,
                       icon: Icons.language,
@@ -136,10 +146,29 @@ class PatientProfileScreen extends ConsumerWidget {
                       ),
                       onTap: () {},
                     ),
+                    Divider(
+                      height: 1,
+                      indent: 56,
+                      color: isDark ? Colors.grey[800] : null,
+                    ),
+                    _settingsTile(
+                      isDark: isDark,
+                      icon: Icons.logout,
+                      title: 'Logout',
+                      trailing: const SizedBox.shrink(),
+                      onTap: () async {
+                        await DbRemoteHelper().signOut();
+                        if (context.mounted) {
+                          Navigator.of(
+                            context,
+                          ).popUntil((route) => route.isFirst);
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 40),
             ],
           ),

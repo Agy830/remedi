@@ -47,16 +47,18 @@ class _CaregiverSignupScreenState extends State<CaregiverSignupScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification link sent to email')),
+            const SnackBar(
+              content: Text('Successfully registered as a Caregiver!'),
+            ),
           );
-          Navigator.pop(context);
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         }
       }
     }

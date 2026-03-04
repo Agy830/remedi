@@ -3,6 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class DbRemoteHelper {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // Get auth state changes stream
+  Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
+
   // Verify if a user exists in the specified role table
   Future<bool> verifyUserRole(String userId, String expectedRole) async {
     String tableName;

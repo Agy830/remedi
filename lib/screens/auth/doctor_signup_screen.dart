@@ -54,9 +54,11 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification link sent to email')),
+            const SnackBar(
+              content: Text('Successfully registered as a Practitioner!'),
+            ),
           );
-          Navigator.pop(context);
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } catch (e) {
         if (mounted) {
