@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/theme_provider.dart';
 import '../notification_settings_screen.dart';
 import '../../database/db_remote_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Displays the user's profile and application settings.
 ///
@@ -17,6 +18,16 @@ class PatientProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // FIX: logic now respects System Mode correctly
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    final metadata = user?.userMetadata ?? {};
+    final firstName = metadata['firstname'] as String? ?? 'Patient';
+    final lastName = metadata['lastname'] as String? ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    final email = user?.email ?? 'patient@email.com';
+    final initials =
+        '${firstName.isNotEmpty ? firstName[0] : ''}${lastName.isNotEmpty ? lastName[0] : ''}'
+            .toUpperCase();
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black12 : const Color(0xFFF5F7FA),
@@ -36,10 +47,10 @@ class PatientProfileScreen extends ConsumerWidget {
                         color: Colors.blueAccent,
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'JD',
-                          style: TextStyle(
+                          initials.isNotEmpty ? initials : 'P',
+                          style: const TextStyle(
                             fontSize: 32,
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -49,7 +60,7 @@ class PatientProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'John Doe',
+                      fullName,
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -57,9 +68,9 @@ class PatientProfileScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'john.doe@email.com',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    Text(
+                      email,
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),

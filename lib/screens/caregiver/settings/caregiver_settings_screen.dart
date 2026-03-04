@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app_entry.dart';
 import '../../../database/db_remote_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Settings screen for the Caregiver profile.
 ///
@@ -17,6 +18,16 @@ class CaregiverSettingsScreen extends StatelessWidget {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subColor = isDark ? Colors.white70 : Colors.grey;
 
+    final user = Supabase.instance.client.auth.currentUser;
+    final metadata = user?.userMetadata ?? {};
+    final firstName = metadata['first_name'] as String? ?? 'Caregiver';
+    final lastName = metadata['last_name'] as String? ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    final email = user?.email ?? 'caregiver@email.com';
+    final initials =
+        '${firstName.isNotEmpty ? firstName[0] : ''}${lastName.isNotEmpty ? lastName[0] : ''}'
+            .toUpperCase();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -26,17 +37,17 @@ class CaregiverSettingsScreen extends StatelessWidget {
               CircleAvatar(
                 radius: 36,
                 backgroundColor: isDark ? Colors.teal.shade700 : Colors.teal,
-                child: const Text(
-                  'CG',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
+                child: Text(
+                  initials.isNotEmpty ? initials : 'CG',
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Caregiver',
+                fullName,
                 style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
               ),
-              Text('caregiver@email.com', style: TextStyle(color: subColor)),
+              Text(email, style: TextStyle(color: subColor)),
             ],
           ),
         ),
