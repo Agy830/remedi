@@ -1,0 +1,65 @@
+name: remedi
+description: "A medical reminder application."
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  intl: ^0.20.2
+  sqflite: ^2.4.2
+  path: ^1.9.1
+  flutter_local_notifications: ^19.5.0
+  timezone: ^0.10.1
+  logger: ^2.6.2
+  drift: ^2.8.0
+  drift_flutter: ^0.2.7
+  path_provider: ^2.0.0
+  json_annotation: ^4.0.1
+  permission_handler: ^11.0.0
+  shared_preferences: ^2.2.2
+  table_calendar: ^3.0.9
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.3.5
+  supabase_flutter: ^2.12.0
+  sqflite_common_ffi: ^2.3.7+1
+  audioplayers: ^5.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.8
+  drift_dev: ^2.16.0
+  flutter_launcher_icons: ^0.13.1
+  riverpod_generator: ^2.4.0
+  flutter_native_splash: ^2.4.7
+
+# 🔽 THIS MUST BE OUTSIDE dev_dependencies
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/remedi_icon.png"
+  adaptive_icon_background: "#FF009688"
+  adaptive_icon_foreground: "assets/icons/remedi_icon.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/
+    - assets/sounds/
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/icons/remedi_icon.png"
+  android: true
+  ios: true
